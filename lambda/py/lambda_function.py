@@ -7,6 +7,9 @@
 # session persistence, api calls, and more.
 
 import logging
+import recipe_utils
+import apl_utils
+from alexa import data
 
 from ask_sdk_core.skill_builder import CustomSkillBuilder
 from ask_sdk_core.dispatch_components import (
@@ -31,6 +34,7 @@ class LaunchRequestIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         speak_output = "Welcome to sauce boss!"
+        apl_utils.launch_screen(handler_input)
 
         handler_input.response_builder.speak(speak_output)
         return handler_input.response_builder.response
@@ -42,9 +46,18 @@ class RecipeIntentHandler(AbstractRequestHandler):
     """
 
     def can_handle(self, handler_input):
-        return is_intent_name("RecipeIntent")(handler_input) or (is_request_type('Alexa.Presentation.APL.UserEvent')(handler_input) and handler_input.request_envelope.request.arguments.length > 0 and handler_input.request_envelope.request.arguments[0] == 'sauceInstructions')
+        return is_intent_name("RecipeIntent")(handler_input) or \
+            (is_request_type('Alexa.Presentation.APL.UserEvent')(handler_input) and
+                handler_input.request_envelope.request.arguments.length > 0 and
+                handler_input.request_envelope.request.arguments[0] == 'sauceInstructions')
 
     def handle(self, handler_input):
+        sauceItem = recipe_utils.getSauceItem(
+            handler_input.request_envelope)
+        return self.generate_recipe_output(handler_input, sauceItem)
+
+    def generate_recipe_output(self, handler_input, sauceItem):
+        logger.info("sauceItem from gen_recipe_output: {}".format(sauceItem))
         handler_input.response_builder.speak("should be handling recipe here")
         return handler_input.response_builder.response
 
