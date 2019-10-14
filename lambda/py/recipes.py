@@ -1,4 +1,5 @@
 # English
+
 en = {
     'HON': {
         'name': "Honey Mustard",
@@ -141,4 +142,10 @@ es = {
         'name': "Secreta",
         'instructions': "No hace falta que me dores la píldora, ni le eches guindas al pavo, la salsa está a buen resguardo."
     }
+}
+
+translations = {
+    'en': en,
+    'fr': fr,
+    'es': es
 }

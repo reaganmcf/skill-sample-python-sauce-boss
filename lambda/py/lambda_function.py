@@ -53,12 +53,31 @@ class RecipeIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         sauceItem = recipe_utils.getSauceItem(
-            handler_input.request_envelope)
+            handler_input.request_envelope.request)
         return self.generate_recipe_output(handler_input, sauceItem)
 
     def generate_recipe_output(self, handler_input, sauceItem):
         logger.info("sauceItem from gen_recipe_output: {}".format(sauceItem))
-        handler_input.response_builder.speak("should be handling recipe here")
+        locale = handler_input.request_envelope.request.locale
+        if(sauceItem['id']):
+            recipes = recipe_utils.get_locale_specific_recipes(locale)
+            logger.info("recipes picking from: {}".format(recipes))
+            selected_recipe = recipes[sauceItem['id']]
+            handler_input.response_builder.speak(
+                selected_recipe['instructions'])
+        else:
+            if(sauceItem['spoken']):
+                handler_input.response_builder.speak(
+                    data.RECIPE_NOT_FOUND_WITH_ITEM_NAME.format(sauceItem['spoken']))
+            else:
+                handler_input.response_builder.speka(
+                    data.RECIPE_NOT_FOUND_WITHOUT_ITEM_NAME
+                )
+
+        handler_input.response_builder.ask(
+            data.RECIPE_NOT_FOUND_REPROMPT
+        )
+
         return handler_input.response_builder.response
 
 

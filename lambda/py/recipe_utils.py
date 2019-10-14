@@ -24,33 +24,33 @@ def getSauceItem(request):
     Returns an object containing the recipe (sauce) ID & spoken value by the User from the JSON request
     Values are computing from slot "Item" or from Alexa.Presentation.APL.UserEvent arguments
     """
-    sauceItem = {}
-    if(request.type == 'Alexa.Presentation.APL.UserEvent'):
-        sauceItem.id = request.arguments[1]
+    sauceItem = {'id': None, 'spoken': None}
+    logger.info("getSauceItem passed request: {}".format(request))
+    if(request.object_type == 'Alexa.Presentation.APL.UserEvent'):
+        sauceItem['id'] = request.arguments[1]
     else:
         itemSlot = request.intent.slots["Item"]
         # Capture spoken value by the user
         if(itemSlot and itemSlot.value):
-            sauceItem.spoken = itemSlot.value
+            sauceItem['spoken'] = itemSlot.value
 
         if(itemSlot and
                 itemSlot.resolutions and
-                itemSlot.resolutions.resolutionsPerAuthority[0] and
-                itemSlot.resolutions.resolutionsPerAuthority[0].status and
-                itemSlot.resolutions.resolutionsPerAuthority[0].status.code == 'ER_SUCCESS_MATH'):
-            sauceItem.id = itemSlot.resolutions.resolutionsPerAuthority[0].values[0].value.id
+                itemSlot.resolutions.resolutions_per_authority[0] and
+                itemSlot.resolutions.resolutions_per_authority[0].status and
+                str(itemSlot.resolutions.resolutions_per_authority[0].status.code) == 'StatusCode.ER_SUCCESS_MATCH'):
+            sauceItem['id'] = itemSlot.resolutions.resolutions_per_authority[0].values[0].value.id
 
-    logger.info("sauceItem: {}".format(sauceItem))
     return sauceItem
 
 
-def load_locale_specific_recipe(locale):
+def get_locale_specific_recipes(locale):
     logger.info("loading locale for {}".format(locale[:2]))
-    return list(recipes)[locale[:2]]
+    return recipes.translations[locale[:2]]
 
 
 def getRandomRecipe(handler_input):
     locale = handler_input.request_envelope.request.locale
-    randRecipe = random.choice(load_locale_specific_recipe(locale))
+    randRecipe = random.choice(get_locale_specific_recipes(locale))
     logger.info("random recipe is: {}" + randRecipe)
     return randRecipe
