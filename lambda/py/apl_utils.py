@@ -52,6 +52,12 @@ def launch_screen(handler_input):
         )
 
 
+def recipeScreen(handler_input, sauce_item, selected_recipe):
+    speakOutput = selected_recipe['instructions']
+    reprompt = data.RECIPE_REPEAT_MESSAGE
+    handler_input.response_builder.speak(speakOutput).ask(reprompt)
+
+
 def generateLaunchScreenDatasource(handler_input):
     # random_recipe = recipe_utils.getRandomRecipe(handler_input)
     headerTitle = data.HEADER_TITLE.format(data.SKILL_NAME)

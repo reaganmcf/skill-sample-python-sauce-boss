@@ -19,29 +19,37 @@ RECIPE_IMAGES = {
 RECIPE_DEFAULT_IMAGE = "https://s3.amazonaws.com/ask-samples-resources/images/sauce-boss/secret-sauce-500x500.png"
 
 
-def getSauceItem(request):
+def getsauce_item(request):
     """
     Returns an object containing the recipe (sauce) ID & spoken value by the User from the JSON request
     Values are computing from slot "Item" or from Alexa.Presentation.APL.UserEvent arguments
     """
-    sauceItem = {'id': None, 'spoken': None}
-    logger.info("getSauceItem passed request: {}".format(request))
+    sauce_item = {'id': None, 'spoken': None}
+    logger.info("getsauce_item passed request: {}".format(request))
     if(request.object_type == 'Alexa.Presentation.APL.UserEvent'):
-        sauceItem['id'] = request.arguments[1]
+        sauce_item['id'] = request.arguments[1]
     else:
         itemSlot = request.intent.slots["Item"]
         # Capture spoken value by the user
         if(itemSlot and itemSlot.value):
-            sauceItem['spoken'] = itemSlot.value
+            sauce_item['spoken'] = itemSlot.value
 
         if(itemSlot and
                 itemSlot.resolutions and
                 itemSlot.resolutions.resolutions_per_authority[0] and
                 itemSlot.resolutions.resolutions_per_authority[0].status and
                 str(itemSlot.resolutions.resolutions_per_authority[0].status.code) == 'StatusCode.ER_SUCCESS_MATCH'):
-            sauceItem['id'] = itemSlot.resolutions.resolutions_per_authority[0].values[0].value.id
+            sauce_item['id'] = itemSlot.resolutions.resolutions_per_authority[0].values[0].value.id
 
-    return sauceItem
+    return sauce_item
+
+
+def getSauceImage(id):
+    url = RECIPE_IMAGES[id]
+    if(url):
+        return url
+    else:
+        return RECIPE_DEFAULT_IMAGE
 
 
 def get_locale_specific_recipes(locale):

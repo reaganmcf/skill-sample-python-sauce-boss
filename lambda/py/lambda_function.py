@@ -16,6 +16,7 @@ from ask_sdk_core.dispatch_components import (
     AbstractRequestHandler, AbstractExceptionHandler, AbstractResponseInterceptor, AbstractRequestInterceptor
 )
 from ask_sdk_core.utils import is_request_type, is_intent_name
+from ask_sdk_model.ui import StandardCard, Image
 
 sb = CustomSkillBuilder()
 
@@ -52,25 +53,36 @@ class RecipeIntentHandler(AbstractRequestHandler):
                 handler_input.request_envelope.request.arguments[0] == 'sauceInstructions')
 
     def handle(self, handler_input):
-        sauceItem = recipe_utils.getSauceItem(
+        sauce_item = recipe_utils.getsauce_item(
             handler_input.request_envelope.request)
-        return self.generate_recipe_output(handler_input, sauceItem)
+        return self.generate_recipe_output(handler_input, sauce_item)
 
-    def generate_recipe_output(self, handler_input, sauceItem):
-        logger.info("sauceItem from gen_recipe_output: {}".format(sauceItem))
+    def generate_recipe_output(self, handler_input, sauce_item):
+        logger.info("sauce_item from gen_recipe_output: {}".format(sauce_item))
         locale = handler_input.request_envelope.request.locale
-        if(sauceItem['id']):
+        if(sauce_item['id']):
             recipes = recipe_utils.get_locale_specific_recipes(locale)
             logger.info("recipes picking from: {}".format(recipes))
-            selected_recipe = recipes[sauceItem['id']]
+            selected_recipe = recipes[sauce_item['id']]
+            sauce_item['image'] = recipe_utils.getSauceImage(sauce_item['id'])
+            logger.info("sauce_item image is: {}".format(sauce_item['image']))
+            cardTitle = data.DISPLAY_CARD_TITLE.format(
+                data.SKILL_NAME, selected_recipe['name'])
             handler_input.response_builder.speak(
                 selected_recipe['instructions'])
+            logger.info("args: {} \n {} \n {}".format(
+                cardTitle, selected_recipe['instructions'], sauce_item['image']))
+            handler_input.response_builder.set_card(
+                StandardCard(title=cardTitle, text=selected_recipe['instructions'], image=Image(
+                    small_image_url=sauce_item['image'], large_image_url=sauce_item['image'])))
+            apl_utils.recipeScreen(handler_input, sauce_item, selected_recipe)
+            return handler_input.response_builder.response
         else:
-            if(sauceItem['spoken']):
+            if(sauce_item['spoken']):
                 handler_input.response_builder.speak(
-                    data.RECIPE_NOT_FOUND_WITH_ITEM_NAME.format(sauceItem['spoken']))
+                    data.RECIPE_NOT_FOUND_WITH_ITEM_NAME.format(sauce_item['spoken']))
             else:
-                handler_input.response_builder.speka(
+                handler_input.response_builder.speak(
                     data.RECIPE_NOT_FOUND_WITHOUT_ITEM_NAME
                 )
 
