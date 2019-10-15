@@ -49,8 +49,8 @@ class RecipeIntentHandler(AbstractRequestHandler):
     def can_handle(self, handler_input):
         return is_intent_name("RecipeIntent")(handler_input) or \
             (is_request_type('Alexa.Presentation.APL.UserEvent')(handler_input) and
-                handler_input.request_envelope.request.arguments.length > 0 and
-                handler_input.request_envelope.request.arguments[0] == 'sauceInstructions')
+                len(list(handler_input.request_envelope.request.arguments)) > 0 and
+                list(handler_input.request_envelope.request.arguments)[0] == 'sauceInstructions')
 
     def handle(self, handler_input):
         sauce_item = recipe_utils.getsauce_item(
@@ -93,6 +93,55 @@ class RecipeIntentHandler(AbstractRequestHandler):
         return handler_input.response_builder.response
 
 
+class PreviousHandler(AbstractRequestHandler):
+    """
+    Handles AMAZON.PreviousIntent & Touch Interaction (Alexa.Presentation.APL.UserEvent - goBack) requests sent by Alexa
+    to replay the previous actionnable request (voice and/or display)
+    Actionnable Requests are:
+        - IntentRequest - RecipeIntent
+        - IntentRequest - HelpIntent
+        - LaunchRequest
+        - Alexa.Presentation.APL.UserEvent - sauceInstructions
+    """
+
+    def can_handle(self, handler_input):
+        return is_intent_name("AMAZON.PreviousIntent")(handler_input) or \
+            (is_request_type('Alexa.Presentation.APL.UserEvent')(handler_input) and
+                len(list(handler_input.request_envelope.request.arguments)) > 0 and
+                list(handler_input.request_envelope.request.arguments)[0] == 'goBack')
+
+    def handle(self, handler_input):
+        attributes_manager = handler_input.attributes_manager
+        # Get History from Session Attributes for replay
+        session_attr = attributes_manager.session_attributes
+        actionnable_history = list()
+        if('actionable_history' in session_attr.keys()):
+            actionnable_history = session_attr.actionnable_history
+        # First actionable request is the one that is currently displayed or heard
+        # So we need to track when that is found so we can go back to the previous one
+        found_actionnable_request_in_history = False
+        replay_request = None
+        while len(actionnable_history) > 0:
+            # Get previous action
+            replay_request = actionnable_history.pop()
+            # Check if the action can be replayed
+            if(replay_request and replay_request.actionable and found_actionnable_request_in_history):
+                if((replay_request['type'] == 'IntentRequest' and replay_request.intent['name'] == 'RecipeIntent') or (replay_request['type'] == 'Alexa.Presentation.APL.UserEvent')):
+                    # Re-Add the actionnable request in history to remember the latest displayed or heard
+                    actionnable_history.append(replay_request)
+                    # Get sauce item from the request history not current request
+                    sauce_item = recipe_utils.getsauce_item(replay_request)
+                    return RecipeIntentHandler().generate_recipe_output(handler_input, sauce_item)
+                if(replay_request['type'] == 'IntentRequest' and replay_request.intent['name'] == 'AMAZON.HelpIntent'):
+                    # Re-Add the actionnable request in history to remember the latest displayed or heard
+                    actionnable_history.append(replay_request)
+                    # Call AMAZON.HelpIntent handler
+                    return HelpIntentHandler().handle(handler_input)
+                break
+            found_actionnable_request_in_history = replay_request.actionable
+        return LaunchRequestIntentHandler().handle(handler_input)
+
+
 class HelpIntentHandler(AbstractRequestHandler):
     """
     Handles AMAZON.HelpIntent requests sent by Alexa
@@ -102,11 +151,13 @@ class HelpIntentHandler(AbstractRequestHandler):
         return is_intent_name("AMAZON.HelpIntent")(handler_input)
 
     def handle(self, handler_input):
-        speak_output = "should be handling help intent here"
-
+        random_sauce = recipe_utils.getRandomRecipe(handler_input)
+        speak_ouput = data.HELP_MESSAGE.format(random_sauce['name'])
+        reprompt_output = data.HELP_REPROMPT.format(random_sauce['name'])
         handler_input.response_builder.speak(
-            speak_output
-        ).ask(speak_output)
+            speak_ouput
+        ).ask(reprompt_output)
+        apl_utils.helpScreen(handler_input)
         return handler_input.response_builder.response
 
 
@@ -128,7 +179,7 @@ class RepeatIntentHandler(AbstractRequestHandler):
 class ExitIntentHandler(AbstractRequestHandler):
     """
     Handler for AMAZON.CancelIntent and AMAZON.StopIntent
-    Note : this request is sent when the user makes a request that corresponds to AMAZON.CancelIntent & AMAZON.StopIntent intents defined in your intent schema.
+    Note: this request is sent when the user makes a request that corresponds to AMAZON.CancelIntent & AMAZON.StopIntent intents defined in your intent schema.
     """
 
     def can_handle(self, handler_input):
@@ -136,7 +187,7 @@ class ExitIntentHandler(AbstractRequestHandler):
             and is_intent_name("AMAZON.StopIntent")(handler_input)
 
     def handle(self, handler_input):
-        speak_output = "should be handling exit intent!"
+        speak_output = data.STOP_MESSAGE
         handler_input.response_builder.speak(speak_output)
         return handler_input.response_builder.response
 
@@ -208,6 +259,7 @@ class ResponseLogger(AbstractResponseInterceptor):
 sb.add_request_handler(LaunchRequestIntentHandler())
 sb.add_request_handler(RecipeIntentHandler())
 sb.add_request_handler(HelpIntentHandler())
+sb.add_request_handler(PreviousHandler())
 sb.add_request_handler(RepeatIntentHandler())
 sb.add_request_handler(ExitIntentHandler())
 sb.add_request_handler(SessionEndedRequestHandler())

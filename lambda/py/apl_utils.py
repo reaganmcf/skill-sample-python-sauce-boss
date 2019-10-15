@@ -52,6 +52,17 @@ def launch_screen(handler_input):
         )
 
 
+def helpScreen(handler_input):
+    if(supports_apl(handler_input)):
+        handler_input.response_builder.add_directive(
+            RenderDocumentDirective(
+                token="helpScreen",
+                document=APL_DOCS['help'],
+                datasources=generateHelpScreenDatasource(handler_input)
+            )
+        )
+
+
 def recipeScreen(handler_input, sauce_item, selected_recipe):
     speak_output = selected_recipe['instructions']
     reprompt_output = data.RECIPE_REPEAT_MESSAGE
@@ -89,6 +100,7 @@ def generateRecipeScreenDatasource(handler_input, sauce_item, selected_recipe):
             'type': 'object',
             'properties': {
                 'headerTitle': header_title,
+                'headerBackButton': (not handler_input.request_envelope.session.new),
                 'hintText': hint_text,
                 'sauceImg': sauce_item['image'],
                 'sauceText': selected_recipe['instructions'],
@@ -110,17 +122,29 @@ def generateRecipeScreenDatasource(handler_input, sauce_item, selected_recipe):
 
 
 def generateLaunchScreenDatasource(handler_input):
-    # random_recipe = recipe_utils.getRandomRecipe(handler_input)
+    random_recipe = recipe_utils.getRandomRecipe(handler_input)
     header_title = data.HEADER_TITLE.format(data.SKILL_NAME)
-    hint_text = data.HINT_TEMPLATE.format("random recipe name")
-    # saucesIdsToDisplay = ["BBQ", "CRA", "HON", "PES", "PIZ", "TAR", "THO", "SEC"]
+    hint_text = data.HINT_TEMPLATE.format(random_recipe['name'])
+    saucesIdsToDisplay = ["BBQ", "CRA", "HON",
+                          "PES", "PIZ", "TAR", "THO", "SEC"]
+    locale = handler_input.request_envelope.request.locale
+    all_recipes = recipe_utils.get_locale_specific_recipes(locale)
+    sauces = []
+    for k in all_recipes.keys():
+        if(k in saucesIdsToDisplay):
+            sauces.append({
+                'id': k,
+                'image': recipe_utils.getSauceImage(k),
+                'text': all_recipes[k]['name']
+            })
+    logger.info("sauces at end {}".format(sauces))
     return {
         'sauceBossData': {
             'type': 'object',
             'properties': {
                 'headerTitle': header_title,
                 'hintText': hint_text,
-                'items': []
+                'items': sauces
             },
             'transformers': [
                 {
@@ -128,5 +152,31 @@ def generateLaunchScreenDatasource(handler_input):
                     'transformer': 'textToHint'
                 }
             ]
+        }
+    }
+
+
+def generateHelpScreenDatasource(handler_input):
+    # get recipes
+    header_title = data.HELP_HEADER_TITLE
+    header_subtitle = data.HELP_HEADER_SUBTITLE
+    saucesIdsToDisplay = ["BBQ", "CRA", "HON",
+                          "PES", "PIZ", "TAR", "THO", "SEC"]
+    locale = handler_input.request_envelope.request.locale
+    all_recipes = recipe_utils.get_locale_specific_recipes(locale)
+    sauces = []
+    for k in all_recipes.keys():
+        if(k in saucesIdsToDisplay):
+            sauces.append({
+                'id': k,
+                'primaryText': data.HINT_TEMPLATE.format(all_recipes[k]['name'])
+            })
+    logger.info("sauces at end {}".format(sauces))
+    return {
+        'sauceBossData': {
+            'headerTitle': header_title,
+            'headerSubtitle': header_subtitle,
+            'headerBackButton': (not handler_input.request_envelope.session.new),
+            'items': sauces
         }
     }
