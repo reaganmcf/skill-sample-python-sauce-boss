@@ -229,6 +229,59 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
         return handler_input.response_builder.response
 
 
+class ResponseActionnableHistoryInterceptor(AbstractResponseInterceptor):
+    """
+    This Response Interceptor is responsible to record Requests for potential replay
+    from a user through Amazon.RepeatIntent or a Touch Interaction (Alexa.Presentation.APL.UserEvent)
+    The following requests will be flagged as actionnable (to be replayed)
+        - IntentRequest - RecipeIntent
+        - IntentRequest - HelpIntent
+        - LaunchRequest
+        - Alexa.Presentation.APL.UserEvent - sauceInstructions
+    """
+
+    def process(self, handler_input, response):
+        max_history_size = 5
+        # Get Session Attributes
+        session_attr = handler_input.attributes_manager.session_attributes
+        actionnable_history = list()
+        if('actionable_history' in session_attr.keys()):
+            actionnable_history = session_attr.actionnable_history
+        # Init request record
+        current_request = handler_input.request_envelope.request
+        logger.info("current_request: {}".format(current_request))
+        logger.info("object_type: {}".format(current_request.object_type))
+        record_request = {
+            'type': current_request,
+            'intent': {
+                'name': '',
+                'slots': {}
+            },
+            'arguments': list(),
+            'actionable': False
+        }
+        # Update request record with information needed for replay
+        if(current_request.object_type == 'IntentRequest'):
+            record_request['intent']['name'] = current_request.intent.name
+            record_request['intent']['slots'] = current_request.intent.slots
+            if(record_request['intent']['name'] == "RecipeIntent" or record_request['intent']['name'] == "AMAZON.HelpIntent"):
+                record_request['actionable'] = True
+        elif (current_request.object_type == 'Alexa.Presentation.APL.UserEvent'):
+            record_request['arguments'] = list(current_request.arguments)
+            if(list(record_request['arguments'])[0] == 'sauceInstructions'):
+                record_request['actionable'] = True
+        elif (current_request.object_type == 'LaunchRequest'):
+            record_request['actionable'] = True
+
+            # Remove the first actionnable item if history limit is reached
+        if(len(actionnable_history) >= max_history_size):
+            actionnable_history.pop(0)
+        # Only record request which will be replaced
+        if(record_request['actionable']):
+            actionnable_history.append(record_request)
+        session_attr['actionnable_history'] = actionnable_history
+
+
 class CacheResponseForRepeatInterceptor(AbstractResponseInterceptor):
     """Cache the response sent to the user in session.
     The interceptor is used to cache the handler response that is
@@ -277,6 +330,7 @@ sb.add_exception_handler(CatchAllExceptionHandler())
 sb.add_global_response_interceptor(CacheResponseForRepeatInterceptor())
 sb.add_global_request_interceptor(RequestLogger())
 sb.add_global_response_interceptor(ResponseLogger())
+sb.add_global_response_interceptor(ResponseActionnableHistoryInterceptor())
 
 
 lambda_handler = sb.lambda_handler()
