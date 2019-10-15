@@ -19,13 +19,13 @@ RECIPE_IMAGES = {
 RECIPE_DEFAULT_IMAGE = "https://s3.amazonaws.com/ask-samples-resources/images/sauce-boss/secret-sauce-500x500.png"
 
 
-def getsauce_item(request):
+def get_suace_item(request):
     """
     Returns an object containing the recipe (sauce) ID & spoken value by the User from the JSON request
     Values are computing from slot "Item" or from Alexa.Presentation.APL.UserEvent arguments
     """
     sauce_item = {'id': None, 'spoken': None}
-    logger.info("getsauce_item passed request: {}".format(request))
+    logger.info("get_suace_item passed request: {}".format(request))
     if(request.object_type == 'Alexa.Presentation.APL.UserEvent'):
         sauce_item['id'] = request.arguments[1]
     else:

@@ -9,14 +9,17 @@
 import logging
 import recipe_utils
 import apl_utils
+import json
 from alexa import data
 
 from ask_sdk_core.skill_builder import CustomSkillBuilder
+from ask_sdk_core.serialize import DefaultSerializer
 from ask_sdk_core.dispatch_components import (
     AbstractRequestHandler, AbstractExceptionHandler, AbstractResponseInterceptor, AbstractRequestInterceptor
 )
 from ask_sdk_core.utils import is_request_type, is_intent_name
 from ask_sdk_model.ui import StandardCard, Image
+from ask_sdk_model import Response
 
 sb = CustomSkillBuilder()
 
@@ -53,7 +56,7 @@ class RecipeIntentHandler(AbstractRequestHandler):
                 list(handler_input.request_envelope.request.arguments)[0] == 'sauceInstructions')
 
     def handle(self, handler_input):
-        sauce_item = recipe_utils.getsauce_item(
+        sauce_item = recipe_utils.get_suace_item(
             handler_input.request_envelope.request)
         return self.generate_recipe_output(handler_input, sauce_item)
 
@@ -130,7 +133,7 @@ class PreviousHandler(AbstractRequestHandler):
                     # Re-Add the actionnable request in history to remember the latest displayed or heard
                     actionnable_history.append(replay_request)
                     # Get sauce item from the request history not current request
-                    sauce_item = recipe_utils.getsauce_item(replay_request)
+                    sauce_item = recipe_utils.get_suace_item(replay_request)
                     return RecipeIntentHandler().generate_recipe_output(handler_input, sauce_item)
                 if(replay_request['type'] == 'IntentRequest' and replay_request.intent['name'] == 'AMAZON.HelpIntent'):
                     # Re-Add the actionnable request in history to remember the latest displayed or heard
@@ -172,8 +175,11 @@ class RepeatIntentHandler(AbstractRequestHandler):
     def handle(self, handler_input):
         session_attr = handler_input.attributes_manager.session_attributes
         logger.info(session_attr)
-        # generate json response
-        return handler_input.response_builder.speak("should be handling repeat intent here").response
+
+        cached_response_str = json.dumps(session_attr["recent_response"])
+        cached_response = DefaultSerializer().deserialize(
+            cached_response_str, Response)
+        return cached_response
 
 
 class ExitIntentHandler(AbstractRequestHandler):
