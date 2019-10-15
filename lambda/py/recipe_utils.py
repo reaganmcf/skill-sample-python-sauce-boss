@@ -59,6 +59,9 @@ def get_locale_specific_recipes(locale):
 
 def getRandomRecipe(handler_input):
     locale = handler_input.request_envelope.request.locale
-    randRecipe = random.choice(get_locale_specific_recipes(locale))
-    logger.info("random recipe is: {}" + randRecipe)
-    return randRecipe
+    logger.info("random recipe pool: {}".format(
+        get_locale_specific_recipes(locale)))
+    randRecipe = random.choice(
+        list(get_locale_specific_recipes(locale).items()))
+    logger.info("random recipe is: {}".format(randRecipe))
+    return randRecipe[1]

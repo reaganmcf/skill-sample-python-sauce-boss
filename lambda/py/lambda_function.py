@@ -76,7 +76,7 @@ class RecipeIntentHandler(AbstractRequestHandler):
                 StandardCard(title=cardTitle, text=selected_recipe['instructions'], image=Image(
                     small_image_url=sauce_item['image'], large_image_url=sauce_item['image'])))
             apl_utils.recipeScreen(handler_input, sauce_item, selected_recipe)
-            return handler_input.response_builder.response
+
         else:
             if(sauce_item['spoken']):
                 handler_input.response_builder.speak(
