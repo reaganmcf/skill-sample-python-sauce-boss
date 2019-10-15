@@ -7,10 +7,8 @@
 # session persistence, api calls, and more.
 
 import logging
-import recipe_utils
-import apl_utils
 import json
-from alexa import data
+import gettext
 
 from ask_sdk_core.skill_builder import CustomSkillBuilder
 from ask_sdk_core.serialize import DefaultSerializer
@@ -20,6 +18,10 @@ from ask_sdk_core.dispatch_components import (
 from ask_sdk_core.utils import is_request_type, is_intent_name
 from ask_sdk_model.ui import StandardCard, Image
 from ask_sdk_model import Response
+
+from alexa import data
+import recipe_utils
+import apl_utils
 
 sb = CustomSkillBuilder()
 
@@ -229,6 +231,28 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
         return handler_input.response_builder.response
 
 
+class RequestLogger(AbstractRequestInterceptor):
+    """Log the request envelope."""
+
+    def process(self, handler_input):
+        # type: (HandlerInput) -> None
+        logger.info("Request Envelope: {}".format(
+            handler_input.request_envelope))
+
+
+class LocalizationInterceptor(AbstractRequestInterceptor):
+    """
+    Add function to request attributes, that can load locale specific data
+    """
+
+    def process(self, handler_input):
+        locale = handler_input.request_envelope.locale
+        logger.info("Locale is {}".format(locale))
+        i18n = gettext.translation(
+            'data', localedir='locales', languages=[locale], fallback=True)
+        handler_input.attributes_manager.request_attributes["_"] = i18n.gettext
+
+
 class ResponseActionnableHistoryInterceptor(AbstractResponseInterceptor):
     """
     This Response Interceptor is responsible to record Requests for potential replay
@@ -297,15 +321,6 @@ class CacheResponseForRepeatInterceptor(AbstractResponseInterceptor):
         session_attr["recent_response"] = response
 
 
-class RequestLogger(AbstractRequestInterceptor):
-    """Log the request envelope."""
-
-    def process(self, handler_input):
-        # type: (HandlerInput) -> None
-        logger.info("Request Envelope: {}".format(
-            handler_input.request_envelope))
-
-
 class ResponseLogger(AbstractResponseInterceptor):
     """Log the response envelope."""
 
@@ -327,10 +342,10 @@ sb.add_request_handler(SessionEndedRequestHandler())
 sb.add_exception_handler(CatchAllExceptionHandler())
 
 # register response interceptors
-sb.add_global_response_interceptor(CacheResponseForRepeatInterceptor())
 sb.add_global_request_interceptor(RequestLogger())
+sb.add_global_request_interceptor(LocalizationInterceptor())
+sb.add_global_response_interceptor(CacheResponseForRepeatInterceptor())
 sb.add_global_response_interceptor(ResponseLogger())
 sb.add_global_response_interceptor(ResponseActionnableHistoryInterceptor())
-
 
 lambda_handler = sb.lambda_handler()
