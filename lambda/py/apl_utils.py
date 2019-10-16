@@ -64,8 +64,9 @@ def helpScreen(handler_input):
 
 
 def recipeScreen(handler_input, sauce_item, selected_recipe):
+    _ = handler_input.attributes_manager.request_attributes["_"]
     speak_output = selected_recipe['instructions']
-    reprompt_output = data.RECIPE_REPEAT_MESSAGE
+    reprompt_output = _(data.RECIPE_REPEAT_MESSAGE)
     if(supports_apl(handler_input)):
         handler_input.response_builder.add_directive(
             RenderDocumentDirective(
@@ -90,10 +91,11 @@ def recipeScreen(handler_input, sauce_item, selected_recipe):
 
 
 def generateRecipeScreenDatasource(handler_input, sauce_item, selected_recipe):
+    _ = handler_input.attributes_manager.request_attributes["_"]
     random_sauce = recipe_utils.getRandomRecipe(handler_input)
     logger.info("random recipe: {}")
-    header_title = data.RECIPE_HEADER_TITLE.format(selected_recipe['name'])
-    hint_text = data.HINT_TEMPLATE.format(random_sauce['name'])
+    header_title = _(data.RECIPE_HEADER_TITLE).format(selected_recipe['name'])
+    hint_text = _(data.HINT_TEMPLATE).format(random_sauce['name'])
     sauce_ssml = "<speak>{}</speak>".format(selected_recipe['instructions'])
     return {
         'sauceBossData': {
@@ -122,9 +124,10 @@ def generateRecipeScreenDatasource(handler_input, sauce_item, selected_recipe):
 
 
 def generateLaunchScreenDatasource(handler_input):
+    _ = handler_input.attributes_manager.request_attributes["_"]
     random_recipe = recipe_utils.getRandomRecipe(handler_input)
-    header_title = data.HEADER_TITLE.format(data.SKILL_NAME)
-    hint_text = data.HINT_TEMPLATE.format(random_recipe['name'])
+    header_title = _(data.HEADER_TITLE).format(_(data.SKILL_NAME))
+    hint_text = _(data.HINT_TEMPLATE).format(random_recipe['name'])
     saucesIdsToDisplay = ["BBQ", "CRA", "HON",
                           "PES", "PIZ", "TAR", "THO", "SEC"]
     locale = handler_input.request_envelope.request.locale
@@ -157,9 +160,10 @@ def generateLaunchScreenDatasource(handler_input):
 
 
 def generateHelpScreenDatasource(handler_input):
+    _ = handler_input.attributes_manager.request_attributes["_"]
     # get recipes
-    header_title = data.HELP_HEADER_TITLE
-    header_subtitle = data.HELP_HEADER_SUBTITLE
+    header_title = _(data.HELP_HEADER_TITLE)
+    header_subtitle = _(data.HELP_HEADER_SUBTITLE)
     saucesIdsToDisplay = ["BBQ", "CRA", "HON",
                           "PES", "PIZ", "TAR", "THO", "SEC"]
     locale = handler_input.request_envelope.request.locale
@@ -169,7 +173,7 @@ def generateHelpScreenDatasource(handler_input):
         if(k in saucesIdsToDisplay):
             sauces.append({
                 'id': k,
-                'primaryText': data.HINT_TEMPLATE.format(all_recipes[k]['name'])
+                'primaryText': _(data.HINT_TEMPLATE).format(all_recipes[k]['name'])
             })
     logger.info("sauces at end {}".format(sauces))
     return {

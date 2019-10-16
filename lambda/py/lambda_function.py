@@ -39,11 +39,16 @@ class LaunchRequestIntentHandler(AbstractRequestHandler):
         return is_request_type("LaunchRequest")(handler_input)
 
     def handle(self, handler_input):
-        speak_output = "Welcome to sauce boss!"
+        _ = handler_input.attributes_manager.request_attributes["_"]
+        # Get a random sauce
+        random_sauce = recipe_utils.getRandomRecipe(handler_input)
+        # Get prompt and reprompt speech
+        speak_output = _(data.WELCOME_MESSAGE).format(
+            _(data.SKILL_NAME), random_sauce['name'])
+        reprompt_output = _(data.WELCOME_REPROMPT)
         apl_utils.launch_screen(handler_input)
 
-        handler_input.response_builder.speak(speak_output)
-        return handler_input.response_builder.response
+        return handler_input.response_builder.speak(speak_output).ask(reprompt_output).response
 
 
 class RecipeIntentHandler(AbstractRequestHandler):
@@ -63,20 +68,16 @@ class RecipeIntentHandler(AbstractRequestHandler):
         return self.generate_recipe_output(handler_input, sauce_item)
 
     def generate_recipe_output(self, handler_input, sauce_item):
-        logger.info("sauce_item from gen_recipe_output: {}".format(sauce_item))
+        _ = handler_input.attributes_manager.request_attributes["_"]
         locale = handler_input.request_envelope.request.locale
         if(sauce_item['id']):
             recipes = recipe_utils.get_locale_specific_recipes(locale)
-            logger.info("recipes picking from: {}".format(recipes))
             selected_recipe = recipes[sauce_item['id']]
             sauce_item['image'] = recipe_utils.getSauceImage(sauce_item['id'])
-            logger.info("sauce_item image is: {}".format(sauce_item['image']))
-            cardTitle = data.DISPLAY_CARD_TITLE.format(
-                data.SKILL_NAME, selected_recipe['name'])
+            cardTitle = _(data.DISPLAY_CARD_TITLE).format(
+                _(data.SKILL_NAME), selected_recipe['name'])
             handler_input.response_builder.speak(
                 selected_recipe['instructions'])
-            logger.info("args: {} \n {} \n {}".format(
-                cardTitle, selected_recipe['instructions'], sauce_item['image']))
             handler_input.response_builder.set_card(
                 StandardCard(title=cardTitle, text=selected_recipe['instructions'], image=Image(
                     small_image_url=sauce_item['image'], large_image_url=sauce_item['image'])))
@@ -85,14 +86,14 @@ class RecipeIntentHandler(AbstractRequestHandler):
         else:
             if(sauce_item['spoken']):
                 handler_input.response_builder.speak(
-                    data.RECIPE_NOT_FOUND_WITH_ITEM_NAME.format(sauce_item['spoken']))
+                    _(data.RECIPE_NOT_FOUND_WITH_ITEM_NAME).format(sauce_item['spoken']))
             else:
                 handler_input.response_builder.speak(
-                    data.RECIPE_NOT_FOUND_WITHOUT_ITEM_NAME
+                    _(data.RECIPE_NOT_FOUND_WITHOUT_ITEM_NAME)
                 )
 
         handler_input.response_builder.ask(
-            data.RECIPE_NOT_FOUND_REPROMPT
+            _(data.RECIPE_NOT_FOUND_REPROMPT)
         )
 
         return handler_input.response_builder.response
@@ -156,9 +157,10 @@ class HelpIntentHandler(AbstractRequestHandler):
         return is_intent_name("AMAZON.HelpIntent")(handler_input)
 
     def handle(self, handler_input):
+        _ = handler_input.attributes_manager.request_attributes["_"]
         random_sauce = recipe_utils.getRandomRecipe(handler_input)
-        speak_ouput = data.HELP_MESSAGE.format(random_sauce['name'])
-        reprompt_output = data.HELP_REPROMPT.format(random_sauce['name'])
+        speak_ouput = _(data.HELP_MESSAGE).format(random_sauce['name'])
+        reprompt_output = _(data.HELP_REPROMPT).format(random_sauce['name'])
         handler_input.response_builder.speak(
             speak_ouput
         ).ask(reprompt_output)
@@ -246,7 +248,7 @@ class LocalizationInterceptor(AbstractRequestInterceptor):
     """
 
     def process(self, handler_input):
-        locale = handler_input.request_envelope.locale
+        locale = handler_input.request_envelope.request.locale
         logger.info("Locale is {}".format(locale))
         i18n = gettext.translation(
             'data', localedir='locales', languages=[locale], fallback=True)
