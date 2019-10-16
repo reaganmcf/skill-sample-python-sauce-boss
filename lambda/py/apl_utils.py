@@ -1,16 +1,13 @@
+import json
+import recipes
+
 import ask_sdk_core as Alexa
 from ask_sdk_model.interfaces.alexa.presentation.apl import (
     RenderDocumentDirective, ExecuteCommandsDirective, SpeakItemCommand, HighlightMode
 )
 from ask_sdk_core.utils import (get_supported_interfaces)
-import json
-import recipes
 import recipe_utils
 from alexa import data
-import logging
-
-logger = logging.getLogger("main")
-logger.setLevel(logging.INFO)
 
 
 def _load_apl_document(file_path):
@@ -34,7 +31,6 @@ def supports_apl(handler_input):
     """
     supported_interfaces = get_supported_interfaces(
         handler_input)
-    logger.info("supported interfaces: {}".format(supported_interfaces))
     return supported_interfaces.alexa_presentation_apl != None
 
 
@@ -42,6 +38,7 @@ def launch_screen(handler_input):
     """
     Adds Launch Screen (APL Template) to Response
     """
+    # Only add APL directive if User's device supports APL
     if(supports_apl(handler_input)):
         handler_input.response_builder.add_directive(
             RenderDocumentDirective(
@@ -53,6 +50,10 @@ def launch_screen(handler_input):
 
 
 def helpScreen(handler_input):
+    """
+    Adds Help Screen (APL Template) to Response
+    """
+    # Only add APL directive if User's device supports APL
     if(supports_apl(handler_input)):
         handler_input.response_builder.add_directive(
             RenderDocumentDirective(
@@ -64,10 +65,16 @@ def helpScreen(handler_input):
 
 
 def recipeScreen(handler_input, sauce_item, selected_recipe):
+    """
+    Adds Recipe Screen (APL Template) to Response
+    """
     _ = handler_input.attributes_manager.request_attributes["_"]
+    # Get prompt and reprompt speech
     speak_output = selected_recipe['instructions']
     reprompt_output = _(data.RECIPE_REPEAT_MESSAGE)
+    # Only add APL directive if User's device supports APL
     if(supports_apl(handler_input)):
+        # Add APL Template amd Command (Speak Item to sync. Voice/Text)
         handler_input.response_builder.add_directive(
             RenderDocumentDirective(
                 token="sauce-boss",
@@ -84,19 +91,29 @@ def recipeScreen(handler_input, sauce_item, selected_recipe):
                     ]
                 )
         )
-
+        # As speech will be done by APL Command (SpeakItem) Voice/Text sync
+        # Save prompt and reprompt for repeat
         session_attributes = handler_input.attributes_manager.session_attributes
         session_attributes['speak_output'] = speak_output
         session_attributes['reprompt_output'] = reprompt_output
+    else:
+        # As APL is not supported by device
+        # Provide prompt & reprompt instead of APL Karaoke
+        handler_input.response_builder.speak(speak_output).ask(reprompt_output)
 
 
 def generateRecipeScreenDatasource(handler_input, sauce_item, selected_recipe):
+    """
+    Compute the JSON Datasource associated to APL Recipe Screen
+    """
     _ = handler_input.attributes_manager.request_attributes["_"]
-    random_sauce = recipe_utils.getRandomRecipe(handler_input)
-    logger.info("random recipe: {}")
+    # Get a random sauce name for hint
+    random_sauce = recipe_utils.get_random_recipe(handler_input)
+    # Define header title and hint
     header_title = _(data.RECIPE_HEADER_TITLE).format(selected_recipe['name'])
     hint_text = _(data.HINT_TEMPLATE).format(random_sauce['name'])
     sauce_ssml = "<speak>{}</speak>".format(selected_recipe['instructions'])
+    # Generate JSON Datasource
     return {
         'sauceBossData': {
             'type': 'object',
@@ -124,10 +141,16 @@ def generateRecipeScreenDatasource(handler_input, sauce_item, selected_recipe):
 
 
 def generateLaunchScreenDatasource(handler_input):
+    """
+    Compute the JSON Datasource associated to APL Launch Screen
+    """
     _ = handler_input.attributes_manager.request_attributes["_"]
-    random_recipe = recipe_utils.getRandomRecipe(handler_input)
+    # Get random recipe name for hint
+    random_recipe = recipe_utils.get_random_recipe(handler_input)
+    # Define header title nad hint
     header_title = _(data.HEADER_TITLE).format(_(data.SKILL_NAME))
     hint_text = _(data.HINT_TEMPLATE).format(random_recipe['name'])
+    # Define sauces to be displayed
     saucesIdsToDisplay = ["BBQ", "CRA", "HON",
                           "PES", "PIZ", "TAR", "THO", "SEC"]
     locale = handler_input.request_envelope.request.locale
@@ -137,10 +160,10 @@ def generateLaunchScreenDatasource(handler_input):
         if(k in saucesIdsToDisplay):
             sauces.append({
                 'id': k,
-                'image': recipe_utils.getSauceImage(k),
+                'image': recipe_utils.get_sauce_image(k),
                 'text': all_recipes[k]['name']
             })
-    logger.info("sauces at end {}".format(sauces))
+    # Generate JSON Datasource
     return {
         'sauceBossData': {
             'type': 'object',
@@ -160,13 +183,18 @@ def generateLaunchScreenDatasource(handler_input):
 
 
 def generateHelpScreenDatasource(handler_input):
+    """
+    Compute the JSON Datasource associated to APL Help Screen
+    """
     _ = handler_input.attributes_manager.request_attributes["_"]
-    # get recipes
+    # Define header and sub titles
     header_title = _(data.HELP_HEADER_TITLE)
     header_subtitle = _(data.HELP_HEADER_SUBTITLE)
+    # Define sauces to be displayed
     saucesIdsToDisplay = ["BBQ", "CRA", "HON",
                           "PES", "PIZ", "TAR", "THO", "SEC"]
     locale = handler_input.request_envelope.request.locale
+    # Get recipes
     all_recipes = recipe_utils.get_locale_specific_recipes(locale)
     sauces = []
     for k in all_recipes.keys():
@@ -175,7 +203,7 @@ def generateHelpScreenDatasource(handler_input):
                 'id': k,
                 'primaryText': _(data.HINT_TEMPLATE).format(all_recipes[k]['name'])
             })
-    logger.info("sauces at end {}".format(sauces))
+    # Generate JSON Datasource
     return {
         'sauceBossData': {
             'headerTitle': header_title,

@@ -13,7 +13,8 @@ import gettext
 from ask_sdk_core.skill_builder import CustomSkillBuilder
 from ask_sdk_core.serialize import DefaultSerializer
 from ask_sdk_core.dispatch_components import (
-    AbstractRequestHandler, AbstractExceptionHandler, AbstractResponseInterceptor, AbstractRequestInterceptor
+    AbstractRequestHandler, AbstractExceptionHandler,
+    AbstractResponseInterceptor, AbstractRequestInterceptor
 )
 from ask_sdk_core.utils import is_request_type, is_intent_name
 from ask_sdk_model.ui import StandardCard, Image
@@ -41,13 +42,14 @@ class LaunchRequestIntentHandler(AbstractRequestHandler):
     def handle(self, handler_input):
         _ = handler_input.attributes_manager.request_attributes["_"]
         # Get a random sauce
-        random_sauce = recipe_utils.getRandomRecipe(handler_input)
+        random_sauce = recipe_utils.get_random_recipe(handler_input)
         # Get prompt and reprompt speech
         speak_output = _(data.WELCOME_MESSAGE).format(
             _(data.SKILL_NAME), random_sauce['name'])
         reprompt_output = _(data.WELCOME_REPROMPT)
+        # Add APL Template if device is compatible
         apl_utils.launch_screen(handler_input)
-
+        # Generate JSON Response
         return handler_input.response_builder.speak(speak_output).ask(reprompt_output).response
 
 
@@ -63,39 +65,52 @@ class RecipeIntentHandler(AbstractRequestHandler):
                 list(handler_input.request_envelope.request.arguments)[0] == 'sauceInstructions')
 
     def handle(self, handler_input):
+        # Get slot item
         sauce_item = recipe_utils.get_suace_item(
             handler_input.request_envelope.request)
+        # Generate output to include a recipe with or without APL
         return self.generate_recipe_output(handler_input, sauce_item)
 
     def generate_recipe_output(self, handler_input, sauce_item):
         _ = handler_input.attributes_manager.request_attributes["_"]
         locale = handler_input.request_envelope.request.locale
+        # Sauce exists
         if(sauce_item['id']):
+            # Load i18n strings
             recipes = recipe_utils.get_locale_specific_recipes(locale)
             selected_recipe = recipes[sauce_item['id']]
-            sauce_item['image'] = recipe_utils.getSauceImage(sauce_item['id'])
+            # Add image
+            sauce_item['image'] = recipe_utils.get_sauce_image(sauce_item['id'])
+            # Add a card (displayed in the Alexa app)
             cardTitle = _(data.DISPLAY_CARD_TITLE).format(
                 _(data.SKILL_NAME), selected_recipe['name'])
+            # Add speak output and reprompt
             handler_input.response_builder.speak(
-                selected_recipe['instructions'])
+                selected_recipe['instructions']).ask(_(data.RECIPE_REPEAT_MESSAGE))
             handler_input.response_builder.set_card(
                 StandardCard(title=cardTitle, text=selected_recipe['instructions'], image=Image(
                     small_image_url=sauce_item['image'], large_image_url=sauce_item['image'])))
+            # Add APL Template if device is compatible
             apl_utils.recipeScreen(handler_input, sauce_item, selected_recipe)
-
         else:
+            # Spoken Sauce does not exist
+            # Add prompt : Is the item slot is filled with a value ?
             if(sauce_item['spoken']):
+                # Use spoken value to let user know no recipe exists for this value
                 handler_input.response_builder.speak(
                     _(data.RECIPE_NOT_FOUND_WITH_ITEM_NAME).format(sauce_item['spoken']))
             else:
+                # No spoken value
                 handler_input.response_builder.speak(
                     _(data.RECIPE_NOT_FOUND_WITHOUT_ITEM_NAME)
                 )
 
+        # add reprompt
         handler_input.response_builder.ask(
             _(data.RECIPE_NOT_FOUND_REPROMPT)
         )
 
+        # Generate JSON response
         return handler_input.response_builder.response
 
 
@@ -143,8 +158,13 @@ class PreviousHandler(AbstractRequestHandler):
                     actionnable_history.append(replay_request)
                     # Call AMAZON.HelpIntent handler
                     return HelpIntentHandler().handle(handler_input)
+                # Note: we don't manage LaunchRequest here as it will be the default actionnable request
+                # We can break the iteration
                 break
+            # Update flag when an actionnable request is found
+            # Next actionnable request in history (if any) will be replayed
             found_actionnable_request_in_history = replay_request.actionable
+        # No actionable history ? so just go to launch
         return LaunchRequestIntentHandler().handle(handler_input)
 
 
@@ -158,13 +178,17 @@ class HelpIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         _ = handler_input.attributes_manager.request_attributes["_"]
-        random_sauce = recipe_utils.getRandomRecipe(handler_input)
+        # Get random sauce for speak_output
+        random_sauce = recipe_utils.get_random_recipe(handler_input)
+        # get prompt and reprompt speach
         speak_ouput = _(data.HELP_MESSAGE).format(random_sauce['name'])
         reprompt_output = _(data.HELP_REPROMPT).format(random_sauce['name'])
+        # Add APL if device is compatible
+        apl_utils.helpScreen(handler_input)
         handler_input.response_builder.speak(
             speak_ouput
         ).ask(reprompt_output)
-        apl_utils.helpScreen(handler_input)
+        # Generate the JSON response
         return handler_input.response_builder.response
 
 
@@ -178,8 +202,8 @@ class RepeatIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         session_attr = handler_input.attributes_manager.session_attributes
-        logger.info(session_attr)
-
+        logger.info("Session Attr: {}".format(session_attr))
+        # get the last response stored in session_attributes and return it
         cached_response_str = json.dumps(session_attr["recent_response"])
         cached_response = DefaultSerializer().deserialize(
             cached_response_str, Response)
@@ -199,6 +223,7 @@ class ExitIntentHandler(AbstractRequestHandler):
     def handle(self, handler_input):
         speak_output = data.STOP_MESSAGE
         handler_input.response_builder.speak(speak_output)
+        # Generate JSON response
         return handler_input.response_builder.response
 
 
@@ -249,7 +274,6 @@ class LocalizationInterceptor(AbstractRequestInterceptor):
 
     def process(self, handler_input):
         locale = handler_input.request_envelope.request.locale
-        logger.info("Locale is {}".format(locale))
         i18n = gettext.translation(
             'data', localedir='locales', languages=[locale], fallback=True)
         handler_input.attributes_manager.request_attributes["_"] = i18n.gettext
@@ -275,8 +299,6 @@ class ResponseActionnableHistoryInterceptor(AbstractResponseInterceptor):
             actionnable_history = session_attr.actionnable_history
         # Init request record
         current_request = handler_input.request_envelope.request
-        logger.info("current_request: {}".format(current_request))
-        logger.info("object_type: {}".format(current_request.object_type))
         record_request = {
             'type': current_request,
             'intent': {

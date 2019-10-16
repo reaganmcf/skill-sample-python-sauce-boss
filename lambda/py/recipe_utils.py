@@ -44,7 +44,10 @@ def get_suace_item(request):
     return sauce_item
 
 
-def getSauceImage(id):
+def get_sauce_image(id):
+    """
+    Returns the image url of a specified recipe id
+    """
     url = RECIPE_IMAGES[id]
     if(url):
         return url
@@ -53,15 +56,17 @@ def getSauceImage(id):
 
 
 def get_locale_specific_recipes(locale):
-    logger.info("loading locale for {}".format(locale[:2]))
+    """
+    Returns the recipe dictionary for a specific locale
+    """
     return recipes.translations[locale[:2]]
 
 
-def getRandomRecipe(handler_input):
+def get_random_recipe(handler_input):
+    """
+    Returns a random localized recipe from the list of available recipes
+    """
     locale = handler_input.request_envelope.request.locale
-    logger.info("random recipe pool: {}".format(
-        get_locale_specific_recipes(locale)))
     randRecipe = random.choice(
         list(get_locale_specific_recipes(locale).items()))
-    logger.info("random recipe is: {}".format(randRecipe))
     return randRecipe[1]
